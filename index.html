@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ردیاب آنلاین</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<style>
+  body { margin:0; font-family:'Vazirmatn', sans-serif; background:#0b0a17; color:#fff; height:100vh; overflow:hidden; }
+  #setup { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; padding:20px; text-align:center; }
+  input, button { font-family:inherit; padding:12px; border-radius:10px; font-size:16px; width:100%; max-width:300px; margin-bottom:10px; border:none; }
+  input { background:#1a1735; color:#fff; border:1px solid #2e2a58; text-align:center; }
+  button { background:#7c5cff; color:#fff; font-weight:bold; cursor:pointer; }
+  button.ghost { background:transparent; border:1px solid #7c5cff; }
+  #map { height:100vh; width:100vw; display:none; }
+  .toast { position:fixed; top:20px; left:50%; transform:translate(-50%, -100px); background:#333; padding:10px 20px; border-radius:8px; transition:0.3s; z-index:999; }
+  .toast.show { transform:translate(-50%, 10px); }
+</style>
+</head>
+<body>
+
+<div id="setup">
+  <h2>📍 ردیاب زنده</h2>
+  <input type="text" id="name" placeholder="اسمت رو بنویس">
+  <button onclick="createRoom()">ساخت اتاق (میزبان)</button>
+  <button class="ghost" onclick="joinRoom()">ورود به اتاق (بازیکن)</button>
+</div>
+
+<div id="map"></div>
+<div class="toast" id="toast">پیام</div>
+
+<script>
+let peer, map, myMarker, conn, myName = "";
+let markers = {};
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.innerText = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function startMap() {
+  document.getElementById('setup').style.display = 'none';
+  document.getElementById('map').style.display = 'block';
+  
+  navigator.geolocation.watchPosition(pos => {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    
+    if (!map) {
+      map = L.map('map').setView([lat, lng], 17);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+      myMarker = L.marker([lat, lng], {title: "من"}).addTo(map).bindPopup("من").openPopup();
+    } else {
+      myMarker.setLatLng([lat, lng]);
+    }
+    
+    // ارسال موقعیت به میزبان
+    if (conn && conn.open) {
+      conn.send({ type: 'loc', name: myName, lat: lat, lng: lng });
+    }
+  }, err => showToast("خطا در GPS: " + err.message), { enableHighAccuracy: true });
+}
+
+// ---------- میزبان ----------
+function createRoom() {
+  myName = document.getElementById('name').value.trim();
+  if (myName.length < 2) return showToast("اسمت رو وارد کن");
+  
+  const code = Math.floor(1000 + Math.random() * 9000).toString();
+  peer = new Peer('tracker-' + code);
+  
+  peer.on('open', () => {
+    showToast("کد اتاق: " + code);
+    alert("اتاق ساخته شد. این کد رو به دوستت بده:\n\n" + code);
+    startMap();
+  });
+  
+  peer.on('connection', c => {
+    conn = c;
+    c.on('data', data => {
+      if (data.type === 'loc') {
+        if (!markers[data.name]) {
+          markers[data.name] = L.marker([data.lat, data.lng]).addTo(map).bindPopup(data.name);
+        } else {
+          markers[data.name].setLatLng([data.lat, data.lng]);
+        }
+      }
+    });
+    c.on('close', () => showToast("بازیکن خارج شد"));
+  });
+}
+
+// ---------- بازیکن ----------
+function joinRoom() {
+  myName = document.getElementById('name').value.trim();
+  if (myName.length < 2) return showToast("اسمت رو وارد کن");
+  
+  const code = prompt("کد ۴ رقمی اتاق رو وارد کن:");
+  if (!code) return;
+  
+  peer = new Peer();
+  peer.on('open', () => {
+    conn = peer.connect('tracker-' + code);
+    
+    conn.on('open', () => {
+      showToast("وصل شدی!");
+      startMap();
+    });
+    
+    conn.on('error', () => showToast("اتاق پیدا نشد"));
+  });
+}
+</script>
+</body>
+</html>
