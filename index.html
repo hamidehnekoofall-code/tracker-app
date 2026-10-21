@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>ردیاب آنلاین</title>
+<title>بازی ردیاب</title>
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -59,14 +59,12 @@ function startMap() {
       myMarker.setLatLng([lat, lng]);
     }
     
-    // ارسال موقعیت به میزبان
     if (conn && conn.open) {
       conn.send({ type: 'loc', name: myName, lat: lat, lng: lng });
     }
   }, err => showToast("خطا در GPS: " + err.message), { enableHighAccuracy: true });
 }
 
-// ---------- میزبان ----------
 function createRoom() {
   myName = document.getElementById('name').value.trim();
   if (myName.length < 2) return showToast("اسمت رو وارد کن");
@@ -95,7 +93,6 @@ function createRoom() {
   });
 }
 
-// ---------- بازیکن ----------
 function joinRoom() {
   myName = document.getElementById('name').value.trim();
   if (myName.length < 2) return showToast("اسمت رو وارد کن");
